@@ -37,17 +37,17 @@ CLIENT_PUBLIC_KEY=$( echo $CLIENT_PRIVKEY | wg pubkey )
 #echo $CLIENT_PRIVKEY > ./"$USERNAME$PRIV_KEY"
 #echo $CLIENT_PUBLIC_KEY > ./"$USERNAME$PUB_KEY"
 
-read SERVER_PUBLIC_KEY < /etc/wireguard/server_public.key
+read SERVER_PUBLIC_KEY < /usr/local/etc/wireguard/server_public.key
 
 # We get the following client IP address
-read OCTET_IP < /etc/wireguard/last_used_ip.var
+read OCTET_IP < /usr/local/etc/wireguard/last_used_ip.var
 OCTET_IP=$(($OCTET_IP+1))
-echo $OCTET_IP > /etc/wireguard/last_used_ip.var
+echo $OCTET_IP > /usr/local/etc/wireguard/last_used_ip.var
 
 CLIENT_IP="$VPN_SUBNET$OCTET_IP/32"
 
 # Create a blank configuration file client 
-cat > /etc/wireguard/clients/$USERNAME/$USERNAME.conf << EOF
+cat > /usr/local/etc/wireguard/clients/$USERNAME/$USERNAME.conf << EOF
 [Interface]
 PrivateKey = $CLIENT_PRIVKEY
 Address = $CLIENT_IP
@@ -63,7 +63,7 @@ PersistentKeepalive=25
 EOF
 
 # Add new client data to the Wireguard configuration file
-cat >> /etc/wireguard/wg0.conf << EOF
+cat >> /usr/local/etc/wireguard/wg0.conf << EOF
 
 [Peer]
 PublicKey = $CLIENT_PUBLIC_KEY
@@ -72,8 +72,8 @@ AllowedIPs = $CLIENT_IP
 EOF
 
 # Restart Wireguard
-systemctl stop wg-quick@wg0
-systemctl start wg-quick@wg0
+sudo launchctl unload -w /Library/LaunchDaemons/com.wireguard.server.plist
+sudo launchctl load -w /Library/LaunchDaemons/com.wireguard.server.plist
 
 # Show QR config to display
 qrencode -t ansiutf8 < ./$USERNAME.conf
