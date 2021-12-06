@@ -1,13 +1,15 @@
-# Install and use AWS-based Wireguard
-Scripts automate the installation and use of Wireguard on AWS with Ubuntu Server 18.04
-This is a fork from pprometey and adds performance benefits like MTU changes.
+# Install and use Wireguard on macOS
+Scripts automate the installation and use of Wireguard on macOS.
+This is a fork from pprometey for macOS.
+Concept from https://barrowclift.me/post/wireguard-server-on-macos
 
-## How use
+
+## How to use
 
 ### Installation
 ```
-git clone https://github.com/lilbillybiscuit/wireguard_aws.git wireguard_aws
-cd wireguard_aws
+git clone https://github.com/lilbillybiscuit/wireguard_macos.git
+cd wireguard_macos
 sudo ./initial.sh
 ```
 
@@ -34,4 +36,4 @@ sudo ./remove.sh
 ```
 ## Authors
 - Alexey Chernyavskiy
-- lilbillybiscuit (just added some code)
+- lilbillybiscuit (changed to macOS)
