@@ -1,16 +1,9 @@
-#!/bin/bash
+#!/bin/zsh
 
-apt install software-properties-common -y
-add-apt-repository ppa:wireguard/wireguard -y
-apt update
-apt install wireguard-dkms wireguard-tools qrencode -y
+brew install wireguard-tools
+brew install qrencode 
 
-
-NET_FORWARD="net.ipv4.ip_forward=1"
-sysctl -w  ${NET_FORWARD}
-sed -i "s:#${NET_FORWARD}:${NET_FORWARD}:" /etc/sysctl.conf
-
-cd /etc/wireguard
+cd /usr/local/etc/wireguard
 
 umask 077
 
@@ -47,10 +40,10 @@ echo $DNS > ./dns.var
 
 echo 1 > ./last_used_ip.var
 
-read -p "Enter the name of the WAN network interface ([ENTER] set to default: eth0): " WAN_INTERFACE_NAME
+read -p "Enter the name of the WAN network interface ([ENTER] set to default: en0): " WAN_INTERFACE_NAME
 if [ -z $WAN_INTERFACE_NAME ]
 then
-  WAN_INTERFACE_NAME="eth0"
+  WAN_INTERFACE_NAME="en0"
 fi
 
 echo $WAN_INTERFACE_NAME > ./wan_interface_name.var
@@ -63,11 +56,70 @@ Address = $SERVER_IP
 SaveConfig = false
 PrivateKey = $SERVER_PRIVKEY
 ListenPort = $SERVER_EXTERNAL_PORT
-PostUp   = iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o $WAN_INTERFACE_NAME -j MASQUERADE;
-PostDown = iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o $WAN_INTERFACE_NAME -j MASQUERADE;
+PostUp = /usr/sbin/sysctl -w net.inet.ip.forwarding=1
+PostUp = /usr/sbin/sysctl -w net.inet6.ip6.forwarding=1
+PostUp = /usr/local/etc/wireguard/postup.sh
+PostDown = /usr/local/etc/wireguard/postdown.sh
+
 EOF
 done
 
+cat > /usr/local/etc/wireguard/postup.sh << EOF
+#!/bin/sh
+mkdir -p /usr/local/var/run/wireguard
+chmod 700 /usr/local/var/run/wireguard
+
+echo 'nat on en0 from $SERVER_IP to any -> (en0)' | \
+    pfctl -a com.apple/wireguard -Ef - 2>&1 | \
+    grep 'Token' | \
+    sed 's%Token : \(.*\)%\1%' > /usr/local/var/run/wireguard/pf_wireguard_token.txt
+
+EOF
+
+cat > /usr/local/etc/wireguard/postdown.sh << EOF
+#!/bin/sh
+TOKEN=`cat /usr/local/var/run/wireguard/pf_wireguard_token.txt`
+pfctl -X ${TOKEN} || exit 1
+rm -f /usr/local/var/run/wireguard/pf_wireguard_token.txt
+
+EOF
+
+sudo chmod +x /usr/local/etc/wireguard/postdown.sh
+sudo chmod +x /usr/local/etc/wireguard/postup.sh
+
 cp -f ./wg0.conf.def ./wg0.conf
 
-systemctl enable wg-quick@wg0
+cat > /Library/LaunchDaemons/com.wireguard.server.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.wireguard.server</string>
+        <key>ProgramArguments</key>
+        <array>
+            <!-- NOTE: If on Apple Silicon, this path should be
+                 /opt/homebrew/bin/wg-quick, instead -->
+            <string>/usr/local/bin/wg-quick</string>
+            <string>up</string>
+            <string>/usr/local/etc/wireguard/coordinates.conf</string>
+        </array>
+        <key>KeepAlive</key>
+        <true/>
+        <key>RunAtLoad</key>
+        <true/>
+        <key>StandardErrorPath</key>
+        <string>/usr/local/var/log/wireguard.err</string>
+        <key>EnvironmentVariables</key>
+        <dict>
+            <key>PATH</key>
+            <string>/usr/local/sbin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        </dict>
+    </dict>
+</plist>
+EOF
+
+sudo launchctl enable system/com.wireguard.server
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.wireguard.server.plist
+
+echo "Setup complete! Please restart your Mac for the server to start"
