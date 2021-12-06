@@ -1,13 +1,10 @@
 echo "# Removing"
+sudo launchctl unload -w /Library/LaunchDaemons/com.wireguard.server.plist
+sudo launchctl disable -w /Library/LaunchDaemons/com.wireguard.server.plist
 
-wg-quick down wg0
-systemctl stop wg-quick@wg0
-systemctl disable wg-quick@wg0
+sudo rm /Library/LaunchDaemons/com.wireguard.server.plist
+yes | brew remove wireguard-tools qrencode
 
-yes | apt autoremove wireguard wireguard-dkms wireguard-tools
-#yes | apt autoremove software-properties-common
-yes | apt update
-
-rm -rf /etc/wireguard
+rm -rf /usr/local/etc/wireguard
 
 echo "# Removed"
