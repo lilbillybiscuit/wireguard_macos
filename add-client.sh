@@ -12,7 +12,7 @@ if [ -z "$1" ]
   else USERNAME=$1
 fi
 
-cd /etc/wireguard/
+cd usr/local/etc/wireguard/
 
 read DNS < ./dns.var
 read ENDPOINT < ./endpoint.var
